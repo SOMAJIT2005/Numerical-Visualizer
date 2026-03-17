@@ -7,7 +7,6 @@
 
 #define MAX_STEPS 100
 
-// Private variables for the parser
 static double x_var;
 static te_expr *expr = NULL;
 
@@ -37,9 +36,8 @@ double d2f(double x) {
     return (f(x + h) - 2.0 * f(x) + f(x - h)) / (h * h);
 }
 
-void run_root_solver(const char* method, double val1, double val2) {
-    int max_iterations = 50;
-    double tol = 1e-6;
+void run_root_solver(const char* method, double val1, double val2, double tol) {
+    int max_iterations = 100;
     
     char step_buffer[MAX_STEPS][256];
     int step_count = 0;
@@ -53,9 +51,6 @@ void run_root_solver(const char* method, double val1, double val2) {
         max_x = val1 + 2.0;
     }
 
-    // ---------------------------------------------------------
-    // BUG FIX #2: CORRECT REFERENCE ROOT FOR FIXED-POINT
-    // ---------------------------------------------------------
     double ref_root = val1;
     int found_ref = 0;
     for (int i = 0; i < 2000; i++) {
@@ -78,9 +73,6 @@ void run_root_solver(const char* method, double val1, double val2) {
 
     double prev_guess = 0.0;
 
-    // ---------------------------------------------------------
-    // ALGORITHM DISPATCHER
-    // ---------------------------------------------------------
     if (strcmp(method, "bisection") == 0) {
         double a = val1, b = val2;
         for (int i = 0; i < max_iterations; i++) {
@@ -92,7 +84,9 @@ void run_root_solver(const char* method, double val1, double val2) {
             sprintf(step_buffer[step_count++], "STEP,%d,%f,%f,%f,%e,%e", i, a, b, c, approx, tr_err);
             if (f(a) * f(c) < 0) b = c; else a = c;
             prev_guess = c;
-            if (fabs(f(c)) < tol || fabs(b - a) < tol) break;
+            
+            // ── COMPARES AS PERCENTAGE ──
+            if (fabs(f(c)) < 1e-14 || (i > 0 && (approx * 100.0) < tol)) break;
         }
     }
     else if (strcmp(method, "false_position") == 0) {
@@ -109,7 +103,8 @@ void run_root_solver(const char* method, double val1, double val2) {
             sprintf(step_buffer[step_count++], "STEP,%d,%f,%f,%f,%e,%e", i, a, b, c, approx, tr_err);
             if (fa * f(c) < 0) b = c; else a = c;
             prev_guess = c;
-            if (fabs(f(c)) < tol) break;
+            
+            if (fabs(f(c)) < 1e-14 || (i > 0 && (approx * 100.0) < tol)) break;
         }
     }
     else if (strcmp(method, "brent") == 0) {
@@ -129,7 +124,10 @@ void run_root_solver(const char* method, double val1, double val2) {
             
             double tol_val = 2.0 * 1e-12 * fabs(b) + 1e-12;
             double m = 0.5 * (c - b);
-            if (fabs(m) <= tol_val || fb == 0.0) break;
+            
+            double approx = (i == 0) ? 0.0 : fabs((b - prev_guess) / b);
+            
+            if (fabs(m) <= tol_val || fb == 0.0 || (i > 0 && (approx * 100.0) < tol)) break;
             
             if (fabs(e) >= tol_val && fabs(fa) > fabs(fb)) {
                 double s = fb/fa, p, q, r;
@@ -152,7 +150,6 @@ void run_root_solver(const char* method, double val1, double val2) {
             fb = f(b);
             
             min_x = fmin(min_x, b); max_x = fmax(max_x, b);
-            double approx = (i == 0) ? 0.0 : fabs((b - prev_guess) / b);
             double tr_err = found_ref ? fabs(ref_root - b) : 0.0;
             
             sprintf(step_buffer[step_count++], "STEP,%d,%f,%f,%f,%e,%e", i, a, b, c, approx, tr_err);
@@ -172,7 +169,7 @@ void run_root_solver(const char* method, double val1, double val2) {
             
             sprintf(step_buffer[step_count++], "STEP,%d,%f,%f,%f,%e,%e", i, x, fx, x_next, approx, tr_err);
             x = x_next;
-            if (fabs(fx) < tol) break;
+            if (fabs(fx) < 1e-14 || (i > 0 && (approx * 100.0) < tol)) break;
         }
     }
     else if (strcmp(method, "modified_newton") == 0) {
@@ -189,7 +186,7 @@ void run_root_solver(const char* method, double val1, double val2) {
             
             sprintf(step_buffer[step_count++], "STEP,%d,%f,%f,%f,%e,%e", i, x, fx, x_next, approx, tr_err);
             x = x_next;
-            if (fabs(fx) < tol) break;
+            if (fabs(fx) < 1e-14 || (i > 0 && (approx * 100.0) < tol)) break;
         }
     }
     else if (strcmp(method, "secant") == 0) {
@@ -205,7 +202,7 @@ void run_root_solver(const char* method, double val1, double val2) {
             
             sprintf(step_buffer[step_count++], "STEP,%d,%f,%f,%f,%f,%f,%e,%e", i, x0, f0, x1, f1, x2, approx, tr_err);
             x0 = x1; x1 = x2;
-            if (fabs(f1) < tol) break;
+            if (fabs(f1) < 1e-14 || (i > 0 && (approx * 100.0) < tol)) break;
         }
     }
     else if (strcmp(method, "modified_secant") == 0) {
@@ -226,7 +223,7 @@ void run_root_solver(const char* method, double val1, double val2) {
             
             sprintf(step_buffer[step_count++], "STEP,%d,%f,%f,%f,%f,%f,%e,%e", i, x, fx, x+dx, fxdx, x_next, approx, tr_err);
             x = x_next;
-            if (fabs(fx) < tol) break;
+            if (fabs(fx) < 1e-14 || (i > 0 && (approx * 100.0) < tol)) break;
         }
     }
     else if (strcmp(method, "fixed_point") == 0) {
@@ -237,9 +234,8 @@ void run_root_solver(const char* method, double val1, double val2) {
             double approx = (i == 0) ? 0.0 : fabs((x_next - x) / x_next);
             double tr_err = found_ref ? fabs(ref_root - x_next) : 0.0;
             
-            // BUG FIX #1: ADDED 0.0 DUMMY PADDING SO PYTHON UNPACKS WITHOUT INDEX ERROR
             sprintf(step_buffer[step_count++], "STEP,%d,%f,%f,%f,%e,%e", i, x, x_next, 0.0, approx, tr_err);
-            if (fabs(x_next - x) < tol) { x = x_next; break; }
+            if (fabs(x_next - x) < 1e-14 || (i > 0 && (approx * 100.0) < tol)) { x = x_next; break; }
             x = x_next;
         }
     }

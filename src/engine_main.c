@@ -13,14 +13,20 @@ int main(int argc, char* argv[]) {
     double val1 = atof(argv[3]);
     double val2 = atof(argv[4]);
 
+    // Catch the Tolerance parameter sent from Python
+    double tol = 0.0001; 
+    if (argc >= 6) {
+        tol = atof(argv[5]);
+    }
+
     // Initialize the Math Parser
     if (init_math_parser(equation) != 0) {
         printf("ERROR,Invalid equation syntax.\n");
         return 1;
     }
 
-    // Hand off to the Core Solver Module
-    run_root_solver(method, val1, val2);
+    // Hand off to the Core Solver Module with Tolerance
+    run_root_solver(method, val1, val2, tol);
 
     // Memory Cleanup
     cleanup_math_parser();

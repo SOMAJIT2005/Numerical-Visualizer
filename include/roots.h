@@ -11,6 +11,6 @@ double df(double x);
 double d2f(double x);
 
 // Core Solver Orchestrator
-void run_root_solver(const char* method, double val1, double val2);
+void run_root_solver(const char* method, double val1, double val2, double tol);
 
 #endif

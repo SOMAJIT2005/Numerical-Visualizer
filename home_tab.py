@@ -34,8 +34,8 @@ class HomeTab(tk.Frame):
         draw_rounded_rect(chip, 0, 0, 220, 26, 13, fill=COLORS.card_active, outline=COLORS.border_glow)
         chip.create_text(110, 13, text='✦  C-Powered Computation Engine  ✦', font=FONTS['body_small'], fill=COLORS.accent_cyan)
 
-        tk.Label(header, text='Numerical Analysis Suite', font=FONTS['hero'], bg=COLORS.bg, fg=COLORS.text_primary).pack(pady=(12, 4))
-        tk.Label(header, text='Focused Edition: Bisection & Newton-Raphson', font=FONTS['hero_sub'], bg=COLORS.bg, fg=COLORS.text_secondary).pack()
+        # The subtitle has been removed here. Bottom padding slightly adjusted to compensate.
+        tk.Label(header, text='Numerical Analysis Suite', font=FONTS['hero'], bg=COLORS.bg, fg=COLORS.text_primary).pack(pady=(12, 10))
 
         div = tk.Canvas(container, height=2, bg=COLORS.bg, highlightthickness=0, width=480)
         div.pack(pady=(22, 36))

@@ -21,45 +21,46 @@ class RootFindingTab(tk.Frame):
         content_wrapper = tk.Frame(self.screen_input, bg=COLORS.bg)
         content_wrapper.pack(expand=True) 
 
+        # ── LEFT COLUMN (Configuration) ──
         left_col = tk.Frame(content_wrapper, bg=COLORS.bg, padx=40)
-        # Reduced external Y padding
-        left_col.pack(side=tk.LEFT, fill=tk.Y, pady=5)
+        left_col.pack(side=tk.LEFT, fill=tk.Y, pady=20)
 
-        # Reduced Y padding below the back button
-        IconButton(left_col, '← Back to Dashboard', command=self.go_home_callback, font=FONTS['heading']).pack(anchor='w', pady=(0, 10))
+        IconButton(left_col, '← Back to Dashboard', command=self.go_home_callback, font=FONTS['heading']).pack(anchor='w', pady=(0, 20))
         SectionLabel(left_col, 'Configuration').pack(anchor='w')
         
-        # Reduced internal Y padding of the main card (from 30 to 20)
-        card = tk.Frame(left_col, bg=COLORS.card, padx=35, pady=20, highlightthickness=1, highlightbackground=COLORS.border)
-        card.pack(pady=10)
+        card = tk.Frame(left_col, bg=COLORS.card, padx=35, pady=30, highlightthickness=1, highlightbackground=COLORS.border)
+        card.pack(pady=15)
 
         self.method_var = tk.StringVar(value='bisection')
 
         cat_frame = tk.Frame(card, bg=COLORS.card)
-        cat_frame.pack(fill=tk.X, pady=(0, 5))
+        cat_frame.pack(fill=tk.X, pady=(0, 10))
 
         col_bracketing = tk.Frame(cat_frame, bg=COLORS.card)
         col_bracketing.pack(side=tk.LEFT, anchor='n', padx=(0, 45))
         
-        tk.Label(col_bracketing, text="Bracketing", font=FONTS['subheading'], bg=COLORS.card, fg=COLORS.accent_cyan).pack(anchor='w', pady=(0, 5))
+        tk.Label(col_bracketing, text="Bracketing", font=FONTS['subheading'], bg=COLORS.card, fg=COLORS.accent_cyan).pack(anchor='w', pady=(0, 10))
         for text, val in [('Bisection', 'bisection'), ('False Position', 'false_position'), ("Brent's", 'brent')]:
             tk.Radiobutton(col_bracketing, text=text, variable=self.method_var, value=val, 
                            bg=COLORS.card, fg=COLORS.text_secondary, selectcolor=COLORS.bg_panel,
                            font=FONTS['heading'], command=self._toggle_inputs,
-                           activebackground=COLORS.card, activeforeground=COLORS.accent_cyan).pack(anchor='w', pady=1)
+                           activebackground=COLORS.card, activeforeground=COLORS.accent_cyan).pack(anchor='w', pady=3)
 
         col_open = tk.Frame(cat_frame, bg=COLORS.card)
         col_open.pack(side=tk.LEFT, anchor='n')
         
-        tk.Label(col_open, text="Open Methods", font=FONTS['subheading'], bg=COLORS.card, fg=COLORS.accent_amber).pack(anchor='w', pady=(0, 5))
+        tk.Label(col_open, text="Open Methods", font=FONTS['subheading'], bg=COLORS.card, fg=COLORS.accent_amber).pack(anchor='w', pady=(0, 10))
         for text, val in [('Newton', 'newton'), ('Mod. Newton', 'modified_newton'), ('Secant', 'secant'), ('Mod. Secant', 'modified_secant')]:
             tk.Radiobutton(col_open, text=text, variable=self.method_var, value=val, 
                            bg=COLORS.card, fg=COLORS.text_secondary, selectcolor=COLORS.bg_panel,
                            font=FONTS['heading'], command=self._toggle_inputs,
-                           activebackground=COLORS.card, activeforeground=COLORS.accent_cyan).pack(anchor='w', pady=1)
+                           activebackground=COLORS.card, activeforeground=COLORS.accent_cyan).pack(anchor='w', pady=3)
 
-        # Reduced divider padding
-        tk.Frame(card, height=1, bg=COLORS.border, width=420).pack(pady=10)
+        tk.Frame(card, height=1, bg=COLORS.border, width=420).pack(pady=15)
+
+        tk.Label(card, text="Tolerance (ε):", bg=COLORS.card, fg=COLORS.text_secondary, font=FONTS['subheading']).pack(anchor='w', pady=(0, 2))
+        self.entry_tol = PremiumEntry(card, width=32, default='0.0001')
+        self.entry_tol.pack(pady=(0, 10))
 
         tk.Label(card, text="Equation f(x):", bg=COLORS.card, fg=COLORS.text_secondary, font=FONTS['subheading']).pack(anchor='w', pady=(0, 2))
         self.entry_eq = PremiumEntry(card, width=32, default='x^3 - 2*x - 5')
@@ -78,18 +79,21 @@ class RootFindingTab(tk.Frame):
         self.lbl_v2.pack(anchor='w', pady=(0, 2))
         self.entry_v2 = PremiumEntry(self.input_block, width=32, default='2.0')
         self.entry_v2.pack()
-        
-        # Reduced padding around the button
-        GlowButton(left_col, text='▶ CALCULATE', command=self._run_solver, width=340, height=60, bg=COLORS.bg).pack(pady=15)
 
-        preview_frame = tk.Frame(content_wrapper, bg=COLORS.bg_panel, padx=2, pady=2)
-        preview_frame.pack(side=tk.LEFT, padx=(80, 0))
+        # ── RIGHT COLUMN (Preview & Action) ──
+        right_col = tk.Frame(content_wrapper, bg=COLORS.bg)
+        right_col.pack(side=tk.LEFT, padx=(80, 0), anchor='n', pady=75) 
+
+        preview_frame = tk.Frame(right_col, bg=COLORS.bg_panel, padx=2, pady=2)
+        preview_frame.pack()
         
         self.prev_fig = Figure(figsize=(4.5, 3.8), facecolor=COLORS.bg)
         self.prev_ax = self.prev_fig.add_subplot(111); self.prev_ax.set_facecolor(COLORS.plot_axes)
         self.prev_canvas = FigureCanvasTkAgg(self.prev_fig, master=preview_frame)
         self.prev_canvas.get_tk_widget().pack()
         self._update_preview()
+
+        GlowButton(right_col, text='▶ CALCULATE', command=self._run_solver, width=340, height=65, bg=COLORS.bg).pack(pady=(40, 0))
 
         # ── RESULT SCREEN ──
         self.screen_graph = tk.Frame(self, bg=COLORS.bg)
@@ -128,7 +132,6 @@ class RootFindingTab(tk.Frame):
 
     def _toggle_inputs(self):
         m = self.method_var.get()
-        # Tightened the dynamically swapped padding too
         self.lbl_v1.pack(anchor='w', pady=(0, 2)); self.entry_v1.pack(pady=(0, 10))
         self.lbl_v2.pack(anchor='w', pady=(0, 2)); self.entry_v2.pack()
 
@@ -190,7 +193,7 @@ class RootFindingTab(tk.Frame):
     def _run_solver(self):
         self.focus_set()
         exe = os.path.join('build', 'engine.exe')
-        args = [exe, self.method_var.get(), self.entry_eq.get(), self.entry_v1.get(), self.entry_v2.get()]
+        args = [exe, self.method_var.get(), self.entry_eq.get(), self.entry_v1.get(), self.entry_v2.get(), self.entry_tol.get()]
         res = subprocess.run(args, capture_output=True, text=True)
         self._on_solver_done(res)
 
@@ -231,6 +234,7 @@ class RootFindingTab(tk.Frame):
         selected = self.tree.selection()
         if selected: self.current_step = int(selected[0]); self._update_frame(self.current_step)
     def handle_keypress(self, event):
+        if not self.algorithm_steps: return
         if event.keysym in ('Right', 'space'): self.current_step = min(len(self.algorithm_steps)-1, self.current_step+1)
         elif event.keysym == 'Left': self.current_step = max(0, self.current_step-1)
         self._update_frame(self.current_step)

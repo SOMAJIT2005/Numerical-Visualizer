@@ -19,15 +19,17 @@ class LinearSystemsTab(tk.Frame):
         self.screen_input.pack(fill=tk.BOTH, expand=True)
 
         content_wrapper = tk.Frame(self.screen_input, bg=COLORS.bg)
-        content_wrapper.pack(expand=True) # Perfect auto-centering
+        content_wrapper.pack(expand=True) 
 
+        # ── LEFT COLUMN (Configuration) ──
         left_col = tk.Frame(content_wrapper, bg=COLORS.bg, padx=40)
         left_col.pack(side=tk.LEFT, fill=tk.Y, pady=20)
 
         IconButton(left_col, '← Back to Dashboard', command=self.go_home_callback, font=FONTS['heading']).pack(anchor='w', pady=(0, 20))
         SectionLabel(left_col, 'Matrix Configuration').pack(anchor='w')
         
-        card = tk.Frame(left_col, bg=COLORS.card, padx=35, pady=30, highlightthickness=1, highlightbackground=COLORS.border)
+        # Reduced padding slightly to prevent stretching
+        card = tk.Frame(left_col, bg=COLORS.card, padx=35, pady=25, highlightthickness=1, highlightbackground=COLORS.border)
         card.pack(pady=15)
 
         tk.Label(card, text="Solver Method", font=FONTS['subheading'], bg=COLORS.card, fg=COLORS.accent_cyan).pack(anchor='w', pady=(0, 10))
@@ -40,12 +42,30 @@ class LinearSystemsTab(tk.Frame):
             tk.Radiobutton(card, text=text, variable=self.method_var, value=val, 
                            bg=COLORS.card, fg=COLORS.text_secondary, selectcolor=COLORS.bg_panel,
                            font=FONTS['heading'], activebackground=COLORS.card, 
-                           activeforeground=COLORS.accent_cyan).pack(anchor='w', pady=3)
+                           activeforeground=COLORS.accent_cyan,
+                           command=self._toggle_inputs).pack(anchor='w', pady=3)
 
-        tk.Frame(card, height=1, bg=COLORS.border, width=300).pack(pady=20)
+        tk.Frame(card, height=1, bg=COLORS.border, width=300).pack(pady=15)
 
-        tk.Label(card, text="Matrix Size (N x N)", font=FONTS['subheading'], bg=COLORS.card, fg=COLORS.accent_amber).pack(anchor='w', pady=(0, 10))
-        size_frame = tk.Frame(card, bg=COLORS.card)
+        self.options_container = tk.Frame(card, bg=COLORS.card)
+        self.options_container.pack(fill=tk.X)
+
+        # Tolerance & Max Iterations Frame
+        self.tol_frame = tk.Frame(self.options_container, bg=COLORS.card)
+        tk.Label(self.tol_frame, text="Tolerance (ε):", bg=COLORS.card, fg=COLORS.text_secondary, font=FONTS['subheading']).pack(anchor='w', pady=(0, 2))
+        self.entry_tol = PremiumEntry(self.tol_frame, width=20, default='0.0001')
+        self.entry_tol.pack(anchor='w', pady=(0, 10))
+
+        tk.Label(self.tol_frame, text="Max Iterations:", bg=COLORS.card, fg=COLORS.text_secondary, font=FONTS['subheading']).pack(anchor='w', pady=(0, 2))
+        self.entry_max_iter = PremiumEntry(self.tol_frame, width=20, default='100')
+        self.entry_max_iter.pack(anchor='w', pady=(0, 10))
+
+        # Size Configuration Frame
+        self.size_frame_container = tk.Frame(self.options_container, bg=COLORS.card)
+        self.size_frame_container.pack(fill=tk.X)
+        tk.Label(self.size_frame_container, text="Matrix Size (N x N)", font=FONTS['subheading'], bg=COLORS.card, fg=COLORS.accent_amber).pack(anchor='w', pady=(0, 10))
+        
+        size_frame = tk.Frame(self.size_frame_container, bg=COLORS.card)
         size_frame.pack(anchor='w')
         
         self.n_var = tk.IntVar(value=3)
@@ -53,16 +73,24 @@ class LinearSystemsTab(tk.Frame):
         tk.Label(size_frame, textvariable=self.n_var, font=FONTS['title'], bg=COLORS.card, fg=COLORS.text_primary, width=3).pack(side=tk.LEFT, padx=10)
         IconButton(size_frame, "  +  ", font=FONTS['heading'], command=lambda: self._change_size(1)).pack(side=tk.LEFT)
 
-        GlowButton(left_col, text='▶ SOLVE SYSTEM', command=self._run_solver, width=340, height=65, bg=COLORS.bg).pack(pady=30)
+        self._toggle_inputs()
 
-        right_col = tk.Frame(content_wrapper, bg=COLORS.bg_panel, padx=30, pady=30, highlightthickness=1, highlightbackground=COLORS.border)
-        right_col.pack(side=tk.LEFT, padx=(60, 0))
-        tk.Label(right_col, text="Augmented Matrix [ A | b ]", font=FONTS['heading'], bg=COLORS.bg_panel, fg=COLORS.text_secondary).pack(pady=(0, 20))
+        # ── RIGHT COLUMN (Grid & Action) ──
+        right_col = tk.Frame(content_wrapper, bg=COLORS.bg)
+        right_col.pack(side=tk.LEFT, padx=(60, 0), anchor='n', pady=75) # pady=75 to perfectly align with the card content
         
-        self.grid_frame = tk.Frame(right_col, bg=COLORS.bg_panel)
+        grid_container = tk.Frame(right_col, bg=COLORS.bg_panel, padx=30, pady=30, highlightthickness=1, highlightbackground=COLORS.border)
+        grid_container.pack()
+        
+        tk.Label(grid_container, text="Augmented Matrix [ A | b ]", font=FONTS['heading'], bg=COLORS.bg_panel, fg=COLORS.text_secondary).pack(pady=(0, 20))
+        self.grid_frame = tk.Frame(grid_container, bg=COLORS.bg_panel)
         self.grid_frame.pack()
         self._build_grid()
 
+        # MOVED: Solve System button correctly placed under the Augmented Matrix
+        GlowButton(right_col, text='▶ SOLVE SYSTEM', command=self._run_solver, width=340, height=65, bg=COLORS.bg).pack(pady=(40, 0))
+
+        # ── RESULT SCREEN ──
         self.screen_graph = tk.Frame(self, bg=COLORS.bg)
         dash_bar = tk.Frame(self.screen_graph, bg=COLORS.bg, pady=15, padx=20)
         dash_bar.pack(fill=tk.X)
@@ -78,6 +106,12 @@ class LinearSystemsTab(tk.Frame):
         self.ax = self.fig.add_subplot(111); self.ax.set_facecolor(COLORS.plot_axes)
         self.canvas = FigureCanvasTkAgg(self.fig, master=main_res)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+    def _toggle_inputs(self):
+        if self.method_var.get() == 'gauss_seidel':
+            self.tol_frame.pack(fill=tk.X, before=self.size_frame_container)
+        else:
+            self.tol_frame.pack_forget()
 
     def _change_size(self, delta):
         new_n = self.n_var.get() + delta
@@ -109,6 +143,9 @@ class LinearSystemsTab(tk.Frame):
             for e in row: args.append(e.get() if e.get() else '0')
         for e in self.entries_b: args.append(e.get() if e.get() else '0')
         
+        args.append(self.entry_tol.get())
+        args.append(self.entry_max_iter.get())
+
         try:
             res = subprocess.run(args, capture_output=True, text=True)
             self._parse_solver_output(res.stdout)
@@ -165,7 +202,6 @@ class LinearSystemsTab(tk.Frame):
             elif parts[0] == 'GS_ITER_START':
                 current_desc = f"Gauss-Seidel Iteration {parts[1]}"; temp_matrix = [] 
             elif parts[0] == 'GS_EQ':
-                # FIXED: Strip all '%' entirely to prevent Matplotlib from crashing
                 clean_eq = ",".join(parts[1:])
                 clean_eq = clean_eq.replace(r'\big[', '[').replace(r'\big]', ']')
                 clean_eq = clean_eq.replace(r'\%', '').replace('%', '') 
@@ -174,7 +210,7 @@ class LinearSystemsTab(tk.Frame):
                 
             elif parts[0] == 'GS_ITER_END':
                 self.steps.append({'type': 'equations', 'data': temp_matrix, 'desc': current_desc})
-                
+
     def _draw_matrix(self, idx):
         self.ax.clear(); self.ax.axis('off')
         if not self.steps: return
@@ -185,11 +221,9 @@ class LinearSystemsTab(tk.Frame):
         if step_data.get('type') == 'equations':
             eqs = step_data['data']
             n_eq = len(eqs)
-            # FIXED: Dynamic spacing so it perfectly fits matrices of any size on the screen
             spacing = min(0.18, 0.8 / n_eq) if n_eq > 0 else 0.15
             
             for i, eq in enumerate(eqs):
-                # Adjusted font size to 15 and pinned the equations to the left side
                 self.ax.text(0.02, 0.9 - i*spacing, eq, color=COLORS.accent_cyan, 
                              fontsize=15, ha='left', va='center')
             self.ax.set_xlim(0, 1); self.ax.set_ylim(0, 1)
@@ -236,7 +270,6 @@ class LinearSystemsTab(tk.Frame):
             
         self.canvas.draw_idle()
 
-    
     def _go_back(self): self.screen_graph.pack_forget(); self.screen_input.pack(fill=tk.BOTH, expand=True)
 
     def handle_keypress(self, event):

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "linalg.h" // Pull in our new header!
+#include "linalg.h" 
 
 Matrix* matrix_create(int rows, int cols) {
     Matrix* mat = (Matrix*)malloc(sizeof(Matrix));
@@ -84,13 +84,11 @@ Vector* gaussian_elimination(Matrix* A, Vector* b) {
     
     Vector* x = vector_create(n);
     printf("INFO,Back-Substitution Phase\n");
-    // FIXED: Only calculate the roots, DO NOT modify the matrix into an Identity Matrix!
     for (int i = n - 1; i >= 0; i--) {
         double sum = 0.0;
         for (int j = i + 1; j < n; j++) sum += aug->data[i][j] * x->data[j];
         x->data[i] = (aug->data[i][n] - sum) / aug->data[i][i];
         printf("BACKSOLVE,%d,%f\n", i, x->data[i]);
-        // matrix_print(aug, "step"); <- REMOVED to preserve Upper Triangular form
     }
     matrix_free(aug); return x;
 }
@@ -219,7 +217,7 @@ Vector* gauss_seidel(Matrix* A, Vector* b, double tolerance, int max_iter) {
     printf("GS_ITER_END,0,0.0\n");
 
     for (int iter = 1; iter <= max_iter; iter++) {
-        double max_diff = 0.0;
+        double max_ea = 0.0; // Strictly track % error
         
         printf("GS_ITER_START,%d\n", iter);
         
@@ -229,7 +227,6 @@ Vector* gauss_seidel(Matrix* A, Vector* b, double tolerance, int max_iter) {
             char temp[128];
             eq_buffer[0] = '\0';
             
-            // Reduced to 4g precision to keep the equations compact and fit the screen
             sprintf(eq_buffer, "GS_EQ,$x_{%d} = \\frac{1}{%.4g}[%.4g", i+1, A->data[i][i], b->data[i]);
             
             double x_old = x->data[i];
@@ -244,11 +241,8 @@ Vector* gauss_seidel(Matrix* A, Vector* b, double tolerance, int max_iter) {
             
             double x_new = (b->data[i] - sum) / A->data[i][i];
             double diff = fabs(x_new - x_old);
-            if (diff > max_diff) max_diff = diff;
-            
             x->data[i] = x_new;
             
-            // Calculate Approximate Relative Error for EACH x value
             double approx_err = 0.0;
             if (iter == 1 && x_old == 0.0 && x_new != 0.0) {
                 approx_err = 100.0;
@@ -256,19 +250,24 @@ Vector* gauss_seidel(Matrix* A, Vector* b, double tolerance, int max_iter) {
                 approx_err = (diff / fabs(x_new)) * 100.0;
             }
             
-            // Append the result and the error margin to the equation string
-            sprintf(temp, "] = %.4g \\quad (\\\\epsilon_a = %.2f\\%%)$", x_new, approx_err);
+            if (approx_err > max_ea) {
+                max_ea = approx_err;
+            }
+            
+            // Output value explicitly as a percentage!
+            sprintf(temp, "] = %.4g \\quad (\\\\epsilon_a = %.2f)$", x_new, approx_err);
             strcat(eq_buffer, temp);
             
             printf("%s\n", eq_buffer); 
         }
         
-        // Pass iter back to UI without disrupting flow
-        printf("GS_ITER_END,%d,%e\n", iter, max_diff);
+        printf("GS_ITER_END,%d,%e\n", iter, max_ea);
         
-        if (max_diff < tolerance) {
-            printf("INFO,Gauss-Seidel Converged successfully!\n");
+        if (iter > 1 && max_ea < tolerance) {
+            printf("INFO,Gauss-Seidel Converged successfully in %d iterations!\n", iter);
             break;
+        } else if (iter == max_iter) {
+            printf("INFO,Halted at %d steps. Matrix may be diverging!\n", max_iter);
         }
     }
     return x;
