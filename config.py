@@ -56,3 +56,16 @@ def safe_float(val_str):
     v = str(val_str).upper()
     if "NAN" in v or "IND" in v: return float('nan')
     return float(val_str)
+
+import sys
+import os
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)

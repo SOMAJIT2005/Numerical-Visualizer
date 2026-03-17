@@ -1,9 +1,10 @@
+import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess, os, numpy as np
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from config import COLORS, FONTS
+from config import COLORS, FONTS, resource_path
 from widgets import GlowButton, IconButton, PremiumEntry, SectionLabel
 
 class LinearSystemsTab(tk.Frame):
@@ -135,26 +136,39 @@ class LinearSystemsTab(tk.Frame):
             e_b.grid(row=i, column=n+1, padx=5, pady=5)
             self.entries_b.append(e_b)
 
+
     def _run_solver(self):
         self.focus_set()
-        exe = os.path.join('build', 'matrix_engine.exe')
-        args = [exe, self.method_var.get(), str(self.n_var.get())]
-        for row in self.entries_A:
-            for e in row: args.append(e.get() if e.get() else '0')
-        for e in self.entries_b: args.append(e.get() if e.get() else '0')
-        
-        args.append(self.entry_tol.get())
-        args.append(self.entry_max_iter.get())
 
-        try:
-            res = subprocess.run(args, capture_output=True, text=True)
-            self._parse_solver_output(res.stdout)
-            self.screen_input.pack_forget()
-            self.screen_graph.pack(fill=tk.BOTH, expand=True)
-            self.current_step = 0
-            self._draw_matrix(self.current_step)
-        except FileNotFoundError:
-            messagebox.showerror("Error", "C Engine not found. Ensure 'matrix_engine.exe' is compiled.")
+        def worker():
+            try:
+                # Use resource_path to find the packed matrix engine
+                exe = resource_path(os.path.join('build', 'matrix_engine.exe'))
+                args = [exe, self.method_var.get(), str(self.n_var.get())]
+                
+                for row in self.entries_A:
+                    for e in row: args.append(e.get() if e.get() else '0')
+                for e in self.entries_b: args.append(e.get() if e.get() else '0')
+                
+                args.append(self.entry_tol.get())
+                args.append(self.entry_max_iter.get())
+
+                res = subprocess.run(args, capture_output=True, text=True)
+                
+                # Update UI safely from the background
+                self.after(0, lambda: self._handle_matrix_results(res))
+            except Exception as e:
+                self.after(0, lambda: messagebox.showerror("Error", str(e)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _handle_matrix_results(self, res):
+        # Move the parsing and UI switching here
+        self._parse_solver_output(res.stdout)
+        self.screen_input.pack_forget()
+        self.screen_graph.pack(fill=tk.BOTH, expand=True)
+        self.current_step = 0
+        self._draw_matrix(self.current_step)
 
     def _parse_solver_output(self, output):
         self.steps = []

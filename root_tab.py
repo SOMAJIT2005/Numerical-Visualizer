@@ -1,9 +1,10 @@
+import threading
 import tkinter as tk
 from tkinter import ttk
 import subprocess, os, numpy as np
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from config import COLORS, FONTS, safe_float
+from config import COLORS, FONTS, resource_path, safe_float
 from widgets import GlowButton, IconButton, PremiumEntry, SectionLabel, StatCard
 
 class RootFindingTab(tk.Frame):
@@ -190,12 +191,29 @@ class RootFindingTab(tk.Frame):
         except: pass
         self.prev_canvas.draw_idle()
 
+    import threading  # Add this import at the top
+
     def _run_solver(self):
-        self.focus_set()
-        exe = os.path.join('build', 'engine.exe')
-        args = [exe, self.method_var.get(), self.entry_eq.get(), self.entry_v1.get(), self.entry_v2.get(), self.entry_tol.get()]
-        res = subprocess.run(args, capture_output=True, text=True)
-        self._on_solver_done(res)
+    # 1. Visual feedback: Disable the button so they don't click it twice
+    # You could also show a "Calculating..." label here
+    
+        def worker():
+            try:
+                exe = resource_path(os.path.join('build', 'engine.exe'))
+                args = [exe, self.method_var.get(), self.entry_eq.get(), 
+                        self.entry_v1.get(), self.entry_v2.get(), self.entry_tol.get()]
+            
+            # This runs in the background
+                res = subprocess.run(args, capture_output=True, text=True)
+            
+            # 2. Use 'after' to send the data back to the UI thread safely
+                self.after(0, lambda: self._on_solver_done(res))
+            
+            except Exception as e:
+                self.after(0, lambda: messagebox.showerror("Error", str(e)))
+
+        # Start the background thread
+        threading.Thread(target=worker, daemon=True).start()
 
     def _on_solver_done(self, res):
         self.curve_x, self.curve_y, self.algorithm_steps, self.true_root = [], [], [], None

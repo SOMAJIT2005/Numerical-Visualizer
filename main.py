@@ -2,7 +2,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 import tkinter as tk
 from tkinter import ttk
-from config import COLORS
+from config import COLORS, resource_path
 from home_tab import HomeTab
 from root_tab import RootFindingTab
 from matrix_tab import LinearSystemsTab
@@ -13,6 +13,15 @@ class NumericalSuite(tk.Tk):
         self.title('Numerical Suite — Dashboard Edition')
         self.geometry('1440x900')
         self.configure(bg=COLORS.bg)
+
+        # ── ADD ICON LOGIC ──
+        try:
+            # This ensures the icon is found inside the bundled EXE
+            icon_path = resource_path('app_icon.ico')
+            self.iconbitmap(icon_path)
+        except Exception as e:
+            print(f"Icon not found: {e}")
+        # ────────────────────
         
         style = ttk.Style()
         style.theme_use('default')
