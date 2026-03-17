@@ -1,6 +1,6 @@
 import threading
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import subprocess, os, numpy as np
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -13,6 +13,7 @@ class RootFindingTab(tk.Frame):
         self.go_home_callback = go_home_callback
         self.algorithm_steps, self.current_step = [], 0
         self._panning, self._pan_start = False, None
+        self._preview_timer = None  # ── ADDED: Timer for preview debouncing ──
         self._build_ui()
 
     def _build_ui(self):
@@ -66,7 +67,9 @@ class RootFindingTab(tk.Frame):
         tk.Label(card, text="Equation f(x):", bg=COLORS.card, fg=COLORS.text_secondary, font=FONTS['subheading']).pack(anchor='w', pady=(0, 2))
         self.entry_eq = PremiumEntry(card, width=32, default='x^3 - 2*x - 5')
         self.entry_eq.pack(pady=(0, 10))
-        self.entry_eq._entry.bind('<KeyRelease>', self._update_preview)
+        
+        # ── CHANGED: Point to the new schedule method instead of updating instantly ──
+        self.entry_eq._entry.bind('<KeyRelease>', self._schedule_preview)
 
         self.input_block = tk.Frame(card, bg=COLORS.card)
         self.input_block.pack(fill=tk.X)
@@ -114,10 +117,21 @@ class RootFindingTab(tk.Frame):
         main_res = tk.Frame(self.screen_graph, bg=COLORS.bg)
         main_res.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
 
+        graph_container = tk.Frame(main_res, bg=COLORS.bg)
+        graph_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         self.fig = Figure(figsize=(9, 6), facecolor=COLORS.bg)
+        
+        # ── ADDED: Manually pad the graph borders once here ──
+        self.fig.subplots_adjust(left=0.08, bottom=0.08, right=0.95, top=0.95)
+        
         self.ax = self.fig.add_subplot(111); self.ax.set_facecolor(COLORS.plot_axes)
-        self.canvas = FigureCanvasTkAgg(self.fig, master=main_res)
-        self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        self.canvas = FigureCanvasTkAgg(self.fig, master=graph_container)
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        self.lbl_coords = tk.Label(graph_container, text="X: ---  |  Y: ---", bg=COLORS.bg, fg=COLORS.accent_cyan, font=FONTS['mono_small'])
+        self.lbl_coords.pack(side=tk.BOTTOM, anchor='e', pady=(5, 0))
 
         self.tree = ttk.Treeview(main_res, columns=('step', 'x', 'ea', 'et'), show='headings', height=22)
         for col, head, w in zip(self.tree['columns'], ('Step', 'xr', 'εa (%)', 'εt (%)'), (50, 100, 120, 120)): 
@@ -148,39 +162,91 @@ class RootFindingTab(tk.Frame):
 
     def _update_frame(self, idx):
         self.ax.clear(); self.ax.set_facecolor(COLORS.plot_axes)
-        self.ax.plot(self.curve_x, self.curve_y, color=COLORS.accent_cyan, alpha=0.3)
-        self.ax.axhline(0, color=COLORS.border_mid, lw=1)
+        
+        self.ax.tick_params(axis='both', colors=COLORS.text_secondary, labelsize=10, pad=5)
+        self.ax.spines['left'].set_visible(True)
+        self.ax.spines['left'].set_color(COLORS.border_mid)
+        self.ax.spines['bottom'].set_visible(True)
+        self.ax.spines['bottom'].set_color(COLORS.border_mid)
+        
+        self.ax.plot(self.curve_x, self.curve_y, color=COLORS.accent_cyan, alpha=0.3, label='Function f(x)')
+        self.ax.axhline(0, color=COLORS.border_mid, lw=1, label='X-Axis')
+        
         s = self.algorithm_steps[idx]
         m = self.method_var.get()
 
+        x_points = []
+        y_points = [0] 
+
         if m in ('bisection', 'false_position', 'brent'):
-            self.ax.axvspan(s[1], s[2], color=COLORS.accent_cyan, alpha=0.1)
-            self.ax.axvline(s[1], color=COLORS.accent_red, ls='--', alpha=0.5)
-            self.ax.axvline(s[2], color=COLORS.accent_cyan, ls='--', alpha=0.5)
+            self.ax.axvspan(s[1], s[2], color=COLORS.accent_cyan, alpha=0.1, label='Search Interval')
+            self.ax.axvline(s[1], color=COLORS.accent_red, ls='--', alpha=0.5, label='Lower Bound (a)')
+            self.ax.axvline(s[2], color=COLORS.accent_cyan, ls='--', alpha=0.5, label='Upper Bound (b)')
             if m == 'false_position':
-                self.ax.plot([s[1], s[2]], [np.interp(s[1], self.curve_x, self.curve_y), np.interp(s[2], self.curve_x, self.curve_y)], color=COLORS.accent_amber, lw=1, ls='-')
-            self.ax.axvline(s[3], color=COLORS.accent_amber, lw=2.5)
+                self.ax.plot([s[1], s[2]], [np.interp(s[1], self.curve_x, self.curve_y), np.interp(s[2], self.curve_x, self.curve_y)], color=COLORS.accent_amber, lw=1, ls='-', label='Secant Line')
+            self.ax.axvline(s[3], color=COLORS.accent_amber, lw=2.5, label='Root Estimate (xr)')
             self.ax.text(s[3], self.ax.get_ylim()[0]*0.9, ' xr', color=COLORS.accent_amber, fontweight='bold')
+            x_points = [s[1], s[2], s[3]]
+            y_points.extend([np.interp(x, self.curve_x, self.curve_y) for x in x_points])
             
         elif m in ('newton', 'modified_newton'):
             x, fx, x_next = s[1], s[2], s[3]
-            self.ax.plot([x, x_next], [fx, 0], color=COLORS.accent_amber, lw=2, ls='--')
-            self.ax.scatter([x], [fx], color=COLORS.accent_amber, s=50)
+            self.ax.plot([x, x_next], [fx, 0], color=COLORS.accent_amber, lw=2, ls='--', label='Tangent Line')
+            self.ax.scatter([x], [fx], color=COLORS.accent_amber, s=50, label='Current Point')
             self.ax.annotate('xr', xy=(x_next, 0), xytext=(x_next, self.ax.get_ylim()[1]*0.1), arrowprops=dict(arrowstyle='->', color=COLORS.accent_amber))
+            x_points = [s[1], s[3]]
+            y_points.extend([s[2], 0])
             
         elif m in ('secant', 'modified_secant'):
             x_prev, fx_prev, x_curr, fx_curr, x_next = s[1], s[2], s[3], s[4], s[5]
-            self.ax.plot([x_prev, x_next], [fx_prev, 0], color=COLORS.accent_amber, lw=2, ls='--')
-            self.ax.scatter([x_prev, x_curr], [fx_prev, fx_curr], color=COLORS.accent_amber, s=50)
+            self.ax.plot([x_prev, x_next], [fx_prev, 0], color=COLORS.accent_amber, lw=2, ls='--', label='Secant Projection')
+            self.ax.scatter([x_prev, x_curr], [fx_prev, fx_curr], color=COLORS.accent_amber, s=50, label='Iterative Points')
             self.ax.annotate('xr', xy=(x_next, 0), xytext=(x_next, self.ax.get_ylim()[1]*0.1), arrowprops=dict(arrowstyle='->', color=COLORS.accent_amber))
+            x_points = [s[1], s[3], s[5]]
+            y_points.extend([s[2], s[4], 0])
 
-        if self.true_root: self.ax.scatter([self.true_root], [0], color=COLORS.accent_green, s=80, edgecolors='white', zorder=6)
+        if self.true_root: 
+            self.ax.scatter([self.true_root], [0], color=COLORS.accent_green, s=80, edgecolors='white', zorder=6, label='True Root')
+            x_points.append(self.true_root)
+        
+        # ── ENHANCED AUTO ZOOM LOGIC ──
+        if x_points:
+            x_min, x_max = min(x_points), max(x_points)
+            y_min, y_max = min(y_points), max(y_points)
+            
+            global_dx = (max(self.curve_x) - min(self.curve_x)) if self.curve_x else 10.0
+            global_dy = (max(self.curve_y) - min(self.curve_y)) if self.curve_y else 10.0
+            
+            dx = x_max - x_min
+            dy = y_max - y_min
+            
+            clamped_dx = max(dx, global_dx * 0.08)
+            clamped_dy = max(dy, global_dy * 0.08)
+            
+            mid_x = (x_max + x_min) / 2
+            mid_y = (y_max + y_min) / 2
+            
+            pad_x = clamped_dx * 0.30
+            pad_y = clamped_dy * 0.30
+            
+            self.ax.set_xlim(mid_x - (clamped_dx/2) - pad_x, mid_x + (clamped_dx/2) + pad_x)
+            self.ax.set_ylim(mid_y - (clamped_dy/2) - pad_y, mid_y + (clamped_dy/2) + pad_y)
+
+        self.ax.legend(loc='best', facecolor=COLORS.bg_panel, edgecolor=COLORS.border, labelcolor=COLORS.text_primary, fontsize=9, framealpha=0.8)
         
         xr_val = s[3] if len(s) < 8 else s[5] 
         self.stat_guess.set(f"{xr_val:.5f}")
         self.stat_ea.set(f"{s[-2] * 100:.4f}%") 
         self.stat_et.set(f"{s[-1] * 100:.4f}%") 
+        
+        # ── REMOVED: self.fig.tight_layout() to prevent arrow key lag ──
         self.canvas.draw_idle()
+
+    # ── ADDED: Scheduler function to debounce the typing preview ──
+    def _schedule_preview(self, event=None):
+        if self._preview_timer:
+            self.after_cancel(self._preview_timer)
+        self._preview_timer = self.after(300, self._update_preview)
 
     def _update_preview(self, e=None):
         self.prev_ax.clear(); self.prev_ax.set_facecolor(COLORS.plot_axes); self.prev_ax.grid(True, color=COLORS.plot_grid, linestyle='--', alpha=0.3)
@@ -191,28 +257,19 @@ class RootFindingTab(tk.Frame):
         except: pass
         self.prev_canvas.draw_idle()
 
-    import threading  # Add this import at the top
-
     def _run_solver(self):
-    # 1. Visual feedback: Disable the button so they don't click it twice
-    # You could also show a "Calculating..." label here
-    
         def worker():
             try:
                 exe = resource_path(os.path.join('build', 'engine.exe'))
                 args = [exe, self.method_var.get(), self.entry_eq.get(), 
                         self.entry_v1.get(), self.entry_v2.get(), self.entry_tol.get()]
             
-            # This runs in the background
                 res = subprocess.run(args, capture_output=True, text=True)
-            
-            # 2. Use 'after' to send the data back to the UI thread safely
                 self.after(0, lambda: self._on_solver_done(res))
             
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Error", str(e)))
 
-        # Start the background thread
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_solver_done(self, res):
@@ -226,33 +283,72 @@ class RootFindingTab(tk.Frame):
         self.stat_root.set(f"{self.true_root:.5f}" if self.true_root else "N/A")
         self.tree.delete(*self.tree.get_children())
         
-        for s in self.algorithm_steps:
+        for i, s in enumerate(self.algorithm_steps):
             xr_val = s[3] if len(s) < 8 else s[5] 
-            self.tree.insert('', 'end', iid=str(int(s[0])), values=(
+            self.tree.insert('', 'end', iid=str(i), values=(
                 int(s[0]), f"{xr_val:.5f}", f"{s[-2] * 100:.4f}%", f"{s[-1] * 100:.4f}%"
             ))
             
-        self.screen_input.pack_forget(); self.screen_graph.pack(fill=tk.BOTH, expand=True); self.current_step = 0; self._update_frame(0)
+        self.screen_input.pack_forget(); self.screen_graph.pack(fill=tk.BOTH, expand=True); self.current_step = 0
+        
+        if self.algorithm_steps:
+            self.tree.selection_set('0')
+            self._update_frame(0)
 
     def _go_back(self): self.screen_graph.pack_forget(); self.screen_input.pack(fill=tk.BOTH, expand=True)
+    
     def _on_scroll(self, event):
-        ax = self.ax; xmin, xmax = ax.get_xlim(); f = 0.85 if event.button == 'up' else 1.15
-        ax.set_xlim(event.xdata + (xmin - event.xdata) * f, event.xdata + (xmax - event.xdata) * f); self.canvas.draw_idle()
+        if not event.inaxes: return
+        f = 0.85 if event.button == 'up' else 1.15
+        
+        xmin, xmax = self.ax.get_xlim()
+        self.ax.set_xlim(event.xdata + (xmin - event.xdata) * f, event.xdata + (xmax - event.xdata) * f)
+        
+        ymin, ymax = self.ax.get_ylim()
+        self.ax.set_ylim(event.ydata + (ymin - event.ydata) * f, event.ydata + (ymax - event.ydata) * f)
+        
+        self.canvas.draw_idle()
+
     def _on_press(self, event): 
-        if event.inaxes: self._pan_start = (event.x, event.y); self._panning = True
-    def _on_release(self, event): self._panning = False
+        if event.inaxes and event.button == 1:
+            self._panning = True
+            self._pan_start = (event.x, event.y)
+            self._start_xlim = self.ax.get_xlim()
+            self._start_ylim = self.ax.get_ylim()
+
+    def _on_release(self, event): 
+        if event.button == 1:
+            self._panning = False
+
     def _on_motion(self, event):
+        if event.inaxes:
+            self.lbl_coords.config(text=f"X: {event.xdata:.5f}  |  Y: {event.ydata:.5f}")
+        else:
+            self.lbl_coords.config(text="X: ---  |  Y: ---")
+
         if self._panning and event.inaxes:
-            dx = (event.x - self._pan_start[0]) / 60.0 
-            dy = (event.y - self._pan_start[1]) / 60.0
-            xmin, xmax = self.ax.get_xlim(); self.ax.set_xlim(xmin - dx, xmax - dx)
-            ymin, ymax = self.ax.get_ylim(); self.ax.set_ylim(ymin - dy, ymax - dy)
-            self._pan_start = (event.x, event.y); self.canvas.draw_idle()
+            dx_pixel = event.x - self._pan_start[0]
+            dy_pixel = event.y - self._pan_start[1]
+            
+            bbox = self.ax.get_window_extent()
+            dx_data = dx_pixel * (self._start_xlim[1] - self._start_xlim[0]) / bbox.width
+            dy_data = dy_pixel * (self._start_ylim[1] - self._start_ylim[0]) / bbox.height
+            
+            self.ax.set_xlim(self._start_xlim[0] - dx_data, self._start_xlim[1] - dx_data)
+            self.ax.set_ylim(self._start_ylim[0] - dy_data, self._start_ylim[1] - dy_data)
+            self.canvas.draw_idle()
+
     def _on_tree_select(self, event):
         selected = self.tree.selection()
-        if selected: self.current_step = int(selected[0]); self._update_frame(self.current_step)
+        if selected: 
+            self.current_step = int(selected[0])
+            self._update_frame(self.current_step)
+
     def handle_keypress(self, event):
         if not self.algorithm_steps: return
         if event.keysym in ('Right', 'space'): self.current_step = min(len(self.algorithm_steps)-1, self.current_step+1)
         elif event.keysym == 'Left': self.current_step = max(0, self.current_step-1)
+        
+        self.tree.selection_set(str(self.current_step))
+        self.tree.see(str(self.current_step))
         self._update_frame(self.current_step)

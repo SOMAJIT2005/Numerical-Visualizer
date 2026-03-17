@@ -57,7 +57,10 @@ class SectionLabel(tk.Frame):
 class IconButton(tk.Button):
     def __init__(self, parent, text, command=None, font=None, **kwargs):
         use_font = font if font else FONTS['heading']
+        # Extract custom 'fg' if it exists, otherwise use the default secondary text
+        use_fg = kwargs.pop('fg', COLORS.text_secondary) 
+        
         super().__init__(parent, text=text, command=command, bg=COLORS.bg, 
-                         fg=COLORS.text_secondary, font=use_font, 
+                         fg=use_fg, font=use_font, 
                          relief='flat', activebackground=COLORS.card_hover, 
                          activeforeground=COLORS.accent_cyan, bd=0, cursor='hand2', **kwargs)

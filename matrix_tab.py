@@ -29,7 +29,6 @@ class LinearSystemsTab(tk.Frame):
         IconButton(left_col, '← Back to Dashboard', command=self.go_home_callback, font=FONTS['heading']).pack(anchor='w', pady=(0, 20))
         SectionLabel(left_col, 'Matrix Configuration').pack(anchor='w')
         
-        # Reduced padding slightly to prevent stretching
         card = tk.Frame(left_col, bg=COLORS.card, padx=35, pady=25, highlightthickness=1, highlightbackground=COLORS.border)
         card.pack(pady=15)
 
@@ -51,7 +50,6 @@ class LinearSystemsTab(tk.Frame):
         self.options_container = tk.Frame(card, bg=COLORS.card)
         self.options_container.pack(fill=tk.X)
 
-        # Tolerance & Max Iterations Frame
         self.tol_frame = tk.Frame(self.options_container, bg=COLORS.card)
         tk.Label(self.tol_frame, text="Tolerance (ε):", bg=COLORS.card, fg=COLORS.text_secondary, font=FONTS['subheading']).pack(anchor='w', pady=(0, 2))
         self.entry_tol = PremiumEntry(self.tol_frame, width=20, default='0.0001')
@@ -61,7 +59,6 @@ class LinearSystemsTab(tk.Frame):
         self.entry_max_iter = PremiumEntry(self.tol_frame, width=20, default='100')
         self.entry_max_iter.pack(anchor='w', pady=(0, 10))
 
-        # Size Configuration Frame
         self.size_frame_container = tk.Frame(self.options_container, bg=COLORS.card)
         self.size_frame_container.pack(fill=tk.X)
         tk.Label(self.size_frame_container, text="Matrix Size (N x N)", font=FONTS['subheading'], bg=COLORS.card, fg=COLORS.accent_amber).pack(anchor='w', pady=(0, 10))
@@ -78,7 +75,7 @@ class LinearSystemsTab(tk.Frame):
 
         # ── RIGHT COLUMN (Grid & Action) ──
         right_col = tk.Frame(content_wrapper, bg=COLORS.bg)
-        right_col.pack(side=tk.LEFT, padx=(60, 0), anchor='n', pady=75) # pady=75 to perfectly align with the card content
+        right_col.pack(side=tk.LEFT, padx=(60, 0), anchor='n', pady=75)
         
         grid_container = tk.Frame(right_col, bg=COLORS.bg_panel, padx=30, pady=30, highlightthickness=1, highlightbackground=COLORS.border)
         grid_container.pack()
@@ -88,7 +85,6 @@ class LinearSystemsTab(tk.Frame):
         self.grid_frame.pack()
         self._build_grid()
 
-        # MOVED: Solve System button correctly placed under the Augmented Matrix
         GlowButton(right_col, text='▶ SOLVE SYSTEM', command=self._run_solver, width=340, height=65, bg=COLORS.bg).pack(pady=(40, 0))
 
         # ── RESULT SCREEN ──
@@ -103,10 +99,27 @@ class LinearSystemsTab(tk.Frame):
         main_res = tk.Frame(self.screen_graph, bg=COLORS.bg)
         main_res.pack(fill=tk.BOTH, expand=True, padx=40, pady=(0, 40))
 
-        self.fig = Figure(figsize=(10, 6), facecolor=COLORS.bg)
+        # ── OPTIMIZED GRAPH SETUP ──
+        graph_container = tk.Frame(main_res, bg=COLORS.bg)
+        graph_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.fig = Figure(figsize=(9, 6), facecolor=COLORS.bg)
+        # Fast manual padding to prevent arrow-key lag
+        self.fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95)
         self.ax = self.fig.add_subplot(111); self.ax.set_facecolor(COLORS.plot_axes)
-        self.canvas = FigureCanvasTkAgg(self.fig, master=main_res)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        
+        self.canvas = FigureCanvasTkAgg(self.fig, master=graph_container)
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        # ── NEW: MATRIX STEP TABLE ──
+        self.tree = ttk.Treeview(main_res, columns=('step', 'action'), show='headings', height=22)
+        for col, head, w in zip(self.tree['columns'], ('Step', 'Row Operation'), (50, 280)): 
+            self.tree.heading(col, text=head)
+            # Left-align the math operations, center the step numbers
+            self.tree.column(col, width=w, anchor='w' if col == 'action' else 'center')
+        
+        self.tree.pack(side=tk.RIGHT, fill=tk.Y, padx=(20, 0))
+        self.tree.bind('<<TreeviewSelect>>', self._on_tree_select)
 
     def _toggle_inputs(self):
         if self.method_var.get() == 'gauss_seidel':
@@ -136,13 +149,11 @@ class LinearSystemsTab(tk.Frame):
             e_b.grid(row=i, column=n+1, padx=5, pady=5)
             self.entries_b.append(e_b)
 
-
     def _run_solver(self):
         self.focus_set()
 
         def worker():
             try:
-                # Use resource_path to find the packed matrix engine
                 exe = resource_path(os.path.join('build', 'matrix_engine.exe'))
                 args = [exe, self.method_var.get(), str(self.n_var.get())]
                 
@@ -154,8 +165,6 @@ class LinearSystemsTab(tk.Frame):
                 args.append(self.entry_max_iter.get())
 
                 res = subprocess.run(args, capture_output=True, text=True)
-                
-                # Update UI safely from the background
                 self.after(0, lambda: self._handle_matrix_results(res))
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Error", str(e)))
@@ -163,12 +172,26 @@ class LinearSystemsTab(tk.Frame):
         threading.Thread(target=worker, daemon=True).start()
 
     def _handle_matrix_results(self, res):
-        # Move the parsing and UI switching here
         self._parse_solver_output(res.stdout)
+        
+        # ── POPULATE THE NEW TABLE ──
+        self.tree.delete(*self.tree.get_children())
+        for i, step in enumerate(self.steps):
+            # Prioritize showing the mathematical notation if available
+            action_text = step.get('op_text', '')
+            if not action_text: 
+                action_text = step.get('desc', 'State Update')
+                
+            self.tree.insert('', 'end', iid=str(i), values=(i, action_text))
+
         self.screen_input.pack_forget()
         self.screen_graph.pack(fill=tk.BOTH, expand=True)
         self.current_step = 0
-        self._draw_matrix(self.current_step)
+        
+        # Auto-select the first matrix state
+        if self.steps:
+            self.tree.selection_set('0')
+            self._draw_matrix(0)
 
     def _parse_solver_output(self, output):
         self.steps = []
@@ -196,11 +219,11 @@ class LinearSystemsTab(tk.Frame):
             elif parts[0] == 'BACKSOLVE':
                 tgt = int(parts[1])
                 current_desc = f"Back-Substitution: x_{tgt+1} = {float(parts[2]):.4f}"
-                op_text = f"x_{tgt+1} Solved"; target_row = tgt; target_row_2 = -1
+                op_text = f"x_{tgt+1} = {float(parts[2]):.4f}"; target_row = tgt; target_row_2 = -1
             elif parts[0] == 'FORWARDSOLVE':
                 tgt = int(parts[1])
                 current_desc = f"Forward-Substitution: y_{tgt+1} = {float(parts[2]):.4f}"
-                op_text = f"y_{tgt+1} Solved"; target_row = tgt; target_row_2 = -1
+                op_text = f"y_{tgt+1} = {float(parts[2]):.4f}"; target_row = tgt; target_row_2 = -1
             elif parts[0] == 'INFO':
                 current_desc = parts[1]
                 op_text, target_row, target_row_2 = "", -1, -1
@@ -230,7 +253,7 @@ class LinearSystemsTab(tk.Frame):
         if not self.steps: return
         
         step_data = self.steps[idx]
-        self.lbl_operation.config(text=f"Step {idx+1}/{len(self.steps)}: {step_data['desc']}")
+        self.lbl_operation.config(text=f"Step {idx}: {step_data['desc']}")
         
         if step_data.get('type') == 'equations':
             eqs = step_data['data']
@@ -280,14 +303,28 @@ class LinearSystemsTab(tk.Frame):
                 self.ax.text(cols + 0.2, -tr1, op_text, color=COLORS.accent_red, fontsize=15, va='center', fontweight='bold')
                 if tr2 != -1: self.ax.text(cols + 0.2, -tr2, op_text, color=COLORS.accent_red, fontsize=15, va='center', fontweight='bold')
 
+            # Perfectly frames the matrix dynamically
             self.ax.set_xlim(-2, cols + 2.5); self.ax.set_ylim(-rows, 1)
             
         self.canvas.draw_idle()
 
-    def _go_back(self): self.screen_graph.pack_forget(); self.screen_input.pack(fill=tk.BOTH, expand=True)
+    def _go_back(self): 
+        self.screen_graph.pack_forget()
+        self.screen_input.pack(fill=tk.BOTH, expand=True)
 
+    # ── NEW: CLICKABLE TABLE SYNC ──
+    def _on_tree_select(self, event):
+        selected = self.tree.selection()
+        if selected: 
+            self.current_step = int(selected[0])
+            self._draw_matrix(self.current_step)
+
+    # ── NEW: ARROW KEY SYNC ──
     def handle_keypress(self, event):
         if not self.steps: return
         if event.keysym in ('Right', 'space'): self.current_step = min(len(self.steps)-1, self.current_step+1)
         elif event.keysym == 'Left': self.current_step = max(0, self.current_step-1)
+        
+        self.tree.selection_set(str(self.current_step))
+        self.tree.see(str(self.current_step))
         self._draw_matrix(self.current_step)
