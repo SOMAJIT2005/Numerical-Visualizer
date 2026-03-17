@@ -185,7 +185,9 @@ class RootFindingTab(tk.Frame):
             if m == 'false_position':
                 self.ax.plot([s[1], s[2]], [np.interp(s[1], self.curve_x, self.curve_y), np.interp(s[2], self.curve_x, self.curve_y)], color=COLORS.accent_amber, lw=1, ls='-', label='Secant Line')
             self.ax.axvline(s[3], color=COLORS.accent_amber, lw=2.5, label='Root Estimate (xr)')
-            self.ax.text(s[3], self.ax.get_ylim()[0]*0.9, ' xr', color=COLORS.accent_amber, fontweight='bold')
+            
+            # FIXED: Anchored text to the X-axis using relative pixels (offset points)
+            self.ax.annotate('xr', xy=(s[3], 0), xytext=(5, 5), textcoords='offset points', color=COLORS.accent_amber, fontweight='bold')
             x_points = [s[1], s[2], s[3]]
             y_points.extend([np.interp(x, self.curve_x, self.curve_y) for x in x_points])
             
@@ -193,7 +195,9 @@ class RootFindingTab(tk.Frame):
             x, fx, x_next = s[1], s[2], s[3]
             self.ax.plot([x, x_next], [fx, 0], color=COLORS.accent_amber, lw=2, ls='--', label='Tangent Line')
             self.ax.scatter([x], [fx], color=COLORS.accent_amber, s=50, label='Current Point')
-            self.ax.annotate('xr', xy=(x_next, 0), xytext=(x_next, self.ax.get_ylim()[1]*0.1), arrowprops=dict(arrowstyle='->', color=COLORS.accent_amber))
+            
+            # FIXED: Anchored the arrow 30 pixels above the axis, regardless of zoom level
+            self.ax.annotate('xr', xy=(x_next, 0), xytext=(0, 30), textcoords='offset points', arrowprops=dict(arrowstyle='->', color=COLORS.accent_amber), color=COLORS.accent_amber, ha='center', fontweight='bold')
             x_points = [s[1], s[3]]
             y_points.extend([s[2], 0])
             
@@ -201,13 +205,11 @@ class RootFindingTab(tk.Frame):
             x_prev, fx_prev, x_curr, fx_curr, x_next = s[1], s[2], s[3], s[4], s[5]
             self.ax.plot([x_prev, x_next], [fx_prev, 0], color=COLORS.accent_amber, lw=2, ls='--', label='Secant Projection')
             self.ax.scatter([x_prev, x_curr], [fx_prev, fx_curr], color=COLORS.accent_amber, s=50, label='Iterative Points')
-            self.ax.annotate('xr', xy=(x_next, 0), xytext=(x_next, self.ax.get_ylim()[1]*0.1), arrowprops=dict(arrowstyle='->', color=COLORS.accent_amber))
+            
+            # FIXED: Anchored the arrow 30 pixels above the axis
+            self.ax.annotate('xr', xy=(x_next, 0), xytext=(0, 30), textcoords='offset points', arrowprops=dict(arrowstyle='->', color=COLORS.accent_amber), color=COLORS.accent_amber, ha='center', fontweight='bold')
             x_points = [s[1], s[3], s[5]]
             y_points.extend([s[2], s[4], 0])
-
-        if self.true_root: 
-            self.ax.scatter([self.true_root], [0], color=COLORS.accent_green, s=80, edgecolors='white', zorder=6, label='True Root')
-            x_points.append(self.true_root)
         
         # ── ENHANCED AUTO ZOOM LOGIC ──
         if x_points:

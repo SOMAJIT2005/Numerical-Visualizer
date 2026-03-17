@@ -1,7 +1,14 @@
 import matplotlib as mpl
+import sys
+import os
 
 class Theme:
     def __init__(self):
+        self.mode = 'dark'
+        self.set_dark()
+
+    def set_dark(self):
+        self.mode = 'dark'
         self.bg           = '#07090f'
         self.bg_mid       = '#0c1018'
         self.bg_panel     = '#0f1520'
@@ -21,6 +28,36 @@ class Theme:
         self.plot_bg        = '#07090f'
         self.plot_axes      = '#0c1018'
         self.plot_grid      = '#1a2540'
+        self.apply_matplotlib()
+
+    def set_light(self):
+        self.mode = 'light'
+        self.bg           = '#f0f4f8'  # Soft, professional light gray
+        self.bg_mid       = '#e2e8f0'
+        self.bg_panel     = '#ffffff'
+        self.card         = '#ffffff'
+        self.card_hover   = '#f8fafc'
+        self.card_active  = '#e0e7ff'
+        self.border       = '#cbd5e1'
+        self.border_mid   = '#94a3b8'
+        self.border_glow  = '#64748b'
+        self.text_primary   = '#0f172a'  # Near black for readability
+        self.text_secondary = '#334155'
+        self.text_muted     = '#64748b'
+        self.accent_cyan    = '#0284c7'  # Darker sky blue 
+        self.accent_amber   = '#d97706'  # Deep amber
+        self.accent_green   = '#059669'
+        self.accent_red     = '#dc2626'
+        self.plot_bg        = '#f8fafc'
+        self.plot_axes      = '#ffffff'
+        self.plot_grid      = '#e2e8f0'
+        self.apply_matplotlib()
+
+    def toggle(self):
+        if self.mode == 'dark':
+            self.set_light()
+        else:
+            self.set_dark()
 
     def apply_matplotlib(self):
         mpl.rcParams.update({
@@ -40,6 +77,7 @@ class Theme:
         })
 
 COLORS = Theme()
+
 FONTS = {
     'hero': ("Georgia", 32, "bold"),
     'hero_sub': ("Trebuchet MS", 14),
@@ -57,15 +95,9 @@ def safe_float(val_str):
     if "NAN" in v or "IND" in v: return float('nan')
     return float(val_str)
 
-import sys
-import os
-
 def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
     try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
-
     return os.path.join(base_path, relative_path)

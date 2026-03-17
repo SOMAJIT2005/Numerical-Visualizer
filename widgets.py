@@ -5,13 +5,15 @@ def draw_rounded_rect(canvas, x1, y1, x2, y2, r, **kw):
     pts = [x1+r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y2-r, x2, y2, x2-r, y2, x1+r, y2, x1, y2, x1, y2-r, x1, y1+r, x1, y1, x1+r, y1]
     return canvas.create_polygon(pts, smooth=True, **kw)
 
+# Replace ONLY the GlowButton class in your widgets.py
 class GlowButton(tk.Canvas):
     def __init__(self, parent, text, command=None, accent='cyan', width=190, height=42, bg=COLORS.bg, **kwargs):
         super().__init__(parent, width=width, height=height, bg=bg, highlightthickness=0, cursor='hand2', **kwargs)
         self._cmd, self._text = command, text
         self._width, self._height = width, height
-        self._accent = COLORS.accent_cyan if accent == 'cyan' else COLORS.accent_amber
-        self._parent_bg = bg
+        self._accent_type = accent
+        self._parent_bg = bg  # FIXED: Restored the parent background variable
+        
         self._draw(False)
         self.bind('<Enter>', lambda e: self._draw(True))
         self.bind('<Leave>', lambda e: self._draw(False))
@@ -19,13 +21,16 @@ class GlowButton(tk.Canvas):
 
     def _draw(self, hover):
         self.delete('all')
+        
+        accent_color = COLORS.accent_cyan if self._accent_type == 'cyan' else COLORS.accent_amber
+        
         if hover:
-            draw_rounded_rect(self, 0, 0, self._width, self._height, self._height//2, fill=self._accent)
-            self.create_text(self._width//2, self._height//2, text=self._text, fill=self._parent_bg, font=FONTS['heading'])
+            draw_rounded_rect(self, 2, 2, self._width-3, self._height-3, (self._height-4)//2, fill=accent_color)
+            self.create_text(self._width//2, self._height//2, text=self._text, fill=COLORS.bg, font=FONTS['heading'])
         else:
-            draw_rounded_rect(self, 2, 2, self._width-2, self._height-2, self._height//2, fill=self._parent_bg, outline=self._accent)
-            self.create_text(self._width//2, self._height//2, text=self._text, fill=self._accent, font=FONTS['heading'])
-
+            draw_rounded_rect(self, 2, 2, self._width-3, self._height-3, (self._height-4)//2, fill=self._parent_bg, outline=accent_color)
+            self.create_text(self._width//2, self._height//2, text=self._text, fill=accent_color, font=FONTS['heading'])
+            
 class StatCard(tk.Frame):
     def __init__(self, parent, title, color, **kwargs):
         super().__init__(parent, bg=COLORS.bg_panel, highlightthickness=1, highlightbackground=COLORS.border, padx=15, pady=8)

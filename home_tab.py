@@ -1,6 +1,6 @@
 import tkinter as tk
 from config import COLORS, FONTS
-from widgets import GlowButton, draw_rounded_rect
+from widgets import GlowButton, draw_rounded_rect, IconButton
 
 class HomeTab(tk.Frame):
     def __init__(self, parent, notebook):
@@ -24,17 +24,16 @@ class HomeTab(tk.Frame):
 
     def _build_ui(self):
         container = tk.Frame(self, bg=COLORS.bg)
-        container.pack(expand=True) # Always centers flawlessly
+        container.pack(expand=True) 
 
         header = tk.Frame(container, bg=COLORS.bg)
         header.pack(pady=(0, 6))
 
         chip = tk.Canvas(header, width=220, height=26, bg=COLORS.bg, highlightthickness=0)
         chip.pack()
-        draw_rounded_rect(chip, 0, 0, 220, 26, 13, fill=COLORS.card_active, outline=COLORS.border_glow)
+        draw_rounded_rect(chip, 2, 2, 218, 24, 11, fill=COLORS.card_active, outline=COLORS.border_glow)
         chip.create_text(110, 13, text='✦  C-Powered Computation Engine  ✦', font=FONTS['body_small'], fill=COLORS.accent_cyan)
 
-        # The subtitle has been removed here. Bottom padding slightly adjusted to compensate.
         tk.Label(header, text='Numerical Analysis Suite', font=FONTS['hero'], bg=COLORS.bg, fg=COLORS.text_primary).pack(pady=(12, 10))
 
         div = tk.Canvas(container, height=2, bg=COLORS.bg, highlightthickness=0, width=480)
@@ -47,11 +46,27 @@ class HomeTab(tk.Frame):
         cards_row = tk.Frame(container, bg=COLORS.bg)
         cards_row.pack(fill=tk.BOTH, expand=True)
 
-        self._make_card(cards_row, '📈', 'Root Finding Engine', ['Bisection Method (Bracketing)', 'Newton-Raphson (Open)', 'Pan, Zoom, & Error Tables'], '2 Methods', 1, COLORS.accent_cyan)
+        # ── NEW INTERESTING CARD CONTENT ──
+        self._make_card(cards_row, '📈', 'Root Finding Engine', 
+                        ['Hunt down equation roots visually', 
+                         'Real-time algorithm convergence', 
+                         'Interactive zooming & error tracking'], 
+                        'Visual Engine', 1, COLORS.accent_cyan)
+        
         tk.Frame(cards_row, width=45, bg=COLORS.bg).pack(side=tk.LEFT)
-        self._make_card(cards_row, '🧮', 'Linear Systems Engine', ['Gaussian Elimination', 'LU Decomposition', 'Gauss-Seidel Iteration'], '3 Methods', 2, COLORS.accent_amber)
+        
+        self._make_card(cards_row, '🧮', 'Linear Systems Engine', 
+                        ['Crack multi-variable systems', 
+                         'Step-by-step matrix transformations', 
+                         'Live mathematical row operations'], 
+                        'Matrix Solver', 2, COLORS.accent_amber)
 
         tk.Label(container, text='Use ← → arrow keys or Space to step through iterations', font=FONTS['body_small'], bg=COLORS.bg, fg=COLORS.text_muted).pack(pady=(35, 0))
+
+        footer = tk.Frame(container, bg=COLORS.bg)
+        footer.pack(pady=(45, 0))
+        from widgets import IconButton
+        IconButton(footer, text='ℹ About Software', command=self._show_about, font=FONTS['body_small'], fg=COLORS.text_muted).pack()
 
     def _make_card(self, parent, icon, title, lines, badge, target, accent):
         outer = tk.Frame(parent, bg=accent, padx=1, pady=1)
@@ -68,7 +83,8 @@ class HomeTab(tk.Frame):
 
         badge_c = tk.Canvas(card, width=100, height=26, bg=COLORS.card, highlightthickness=0)
         badge_c.pack(anchor='w', pady=(15, 20))
-        draw_rounded_rect(badge_c, 0, 0, 100, 26, 13, fill=COLORS.bg_panel, outline=accent)
+        # FIXED: Pulled badge boundaries inward (2, 2, 98, 24)
+        draw_rounded_rect(badge_c, 2, 2, 98, 24, 11, fill=COLORS.bg_panel, outline=accent)
         badge_c.create_text(50, 13, text=badge, font=FONTS['body_small'], fill=accent)
 
         for ln in lines:
@@ -80,3 +96,23 @@ class HomeTab(tk.Frame):
         btn = GlowButton(card, text='Launch Module  →', command=lambda t=target: self.notebook.select(t), 
                          accent='cyan' if accent == COLORS.accent_cyan else 'amber', width=220, height=45, bg=COLORS.card)
         btn.pack(pady=(35, 0))
+        
+    # ── UPDATED: ABOUT WINDOW WITH PERSONAL INFO ──
+    def _show_about(self):
+        about = tk.Toplevel(self)
+        about.title("About Software")
+        about.geometry("500x300")
+        about.configure(bg=COLORS.bg)
+        about.resizable(False, False)
+        
+        about.transient(self.winfo_toplevel())
+        about.grab_set()
+
+        tk.Label(about, text="Numerical Analysis Suite", font=FONTS['title'], bg=COLORS.bg, fg=COLORS.accent_cyan).pack(pady=(30, 5))
+        tk.Label(about, text="Version 1.0.0 (Pro Edition)", font=FONTS['body_std'], bg=COLORS.bg, fg=COLORS.text_secondary).pack(pady=(0, 25))
+        
+        tk.Label(about, text="Lead Developer: Somajit Deb", font=FONTS['heading'], bg=COLORS.bg, fg=COLORS.accent_amber).pack(pady=(0, 5))
+        tk.Label(about, text="Computer Science & Engineering", font=FONTS['body_std'], bg=COLORS.bg, fg=COLORS.text_primary).pack(pady=(0, 2))
+        tk.Label(about, text="Khulna University", font=FONTS['subheading'], bg=COLORS.bg, fg=COLORS.text_secondary).pack(pady=(0, 25))
+
+        IconButton(about, text="Close Window", command=about.destroy).pack()
