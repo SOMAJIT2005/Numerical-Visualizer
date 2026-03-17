@@ -49,7 +49,7 @@ That's it. No Python, no compilers, no setup needed.
 | | |
 |---|---|
 | **OS** | Windows 10 or Windows 11 (64-bit) |
-| **Disk Space** | ~30 MB |
+| **Disk Space** | ~50 MB |
 | **RAM** | 256 MB minimum |
 | **Display** | 1440 × 900 or higher recommended |
 | **Dependencies** | None — everything is bundled inside the `.exe` |
