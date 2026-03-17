@@ -7,6 +7,10 @@ from home_tab import HomeTab
 from root_tab import RootFindingTab
 from matrix_tab import LinearSystemsTab
 
+import license_manager
+from license_gate import LicenseGate
+
+
 class NumericalSuite(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -40,6 +44,17 @@ class NumericalSuite(tk.Tk):
         self.notebook.add(self.root_tab)
         self.notebook.add(self.matrix_tab)
         self.bind('<Key>', self._route_keypress)
+        
+        is_unlocked, remaining_seconds = license_manager.get_status()
+
+        if not is_unlocked and remaining_seconds <= 0:
+            self.withdraw() # Hide the main dashboard
+            # Pass deiconify so the dashboard reappears on success
+            LicenseGate(self, self.deiconify)
+        elif not is_unlocked:
+            # Optional: Show a small "Trial" label on the dashboard
+            hours_left = int(remaining_seconds // 3600)
+            self.title(f"Numerical Suite — {hours_left}h Trial Remaining")
 
     # ── FIXED KEY ROUTING ──
     def _route_keypress(self, event):
