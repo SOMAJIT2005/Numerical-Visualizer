@@ -1,0 +1,71 @@
+name: C Engine, Test Suite & Standalone EXE Release
+
+on:
+  push:
+    branches: [ main, master, "upgrade/**" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ main, master ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-test-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python Dependencies & PyInstaller
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install matplotlib numpy pyinstaller
+
+      - name: Compile C Engines Statically (engine.exe, matrix_engine.exe, numlab_engine.exe)
+        shell: pwsh
+        run: |
+          if (!(Test-Path build)) { New-Item -ItemType Directory -Path build | Out-Null }
+          gcc -Wall -Wextra -O3 -static -Iinclude src/engine_main.c src/roots.c src/tinyexpr.c -o build/engine.exe -lm
+          gcc -Wall -Wextra -O3 -static -Iinclude src/matrix_main.c src/linalg.c -o build/matrix_engine.exe -lm
+          gcc -Wall -Wextra -O3 -static -Iinclude src/numlab_main.c src/numlab.c src/tinyexpr.c -o build/numlab_engine.exe -lm
+
+      - name: Run Comprehensive Real-Problem Test Suite
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p "test_suite.py" -v
+
+      - name: Build Zero-Dependency Standalone EXE (Numerical_Analysis_Suite.exe)
+        shell: pwsh
+        run: |
+          pyinstaller main.spec --clean --noconfirm
+          if (!(Test-Path "dist/Numerical_Analysis_Suite.exe")) {
+            throw "Standalone EXE was not generated!"
+          }
+
+      - name: Upload Standalone EXE Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Numerical_Analysis_Suite_Windows_x64
+          path: dist/Numerical_Analysis_Suite.exe
+
+      - name: Publish Standalone EXE to GitHub Releases
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.0.0
+          name: "Numerical Analysis Suite v2.0.0 — Complete 6-Unit C-Powered Learning Lab"
+          body: |
+            ## Numerical Analysis Suite v2.0.0 (Zero-Dependency Standalone Windows `.exe`)
+            - **Zero-Dependency Single-File Executable**: Download `Numerical_Analysis_Suite.exe` and run directly — bundles Python, Tkinter, Matplotlib, NumPy, and all 3 statically compiled C math engines (`engine.exe`, `matrix_engine.exe`, `numlab_engine.exe`).
+            - **No Trial / License Gate**: Completely unlocked out of the box.
+            - **100% C-Powered Mathematical Engines**: All 6 syllabus units (Errors & IEEE-754, Root Finding & Horner Deflation, Linear Systems & Matrix Inversion, 1D/2D Optimization, Interpolation & Regression, Numerical Quadrature & ODE Systems) execute in compiled C.
+            - **Full Working Steps, Governing Equations & Method Descriptions**: Every method displays its governing formula, theoretical description, and step-by-step arithmetic substitution.
+          files: dist/Numerical_Analysis_Suite.exe
+          prerelease: false
