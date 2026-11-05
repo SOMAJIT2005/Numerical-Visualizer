@@ -19,5 +19,11 @@ Vector* gaussian_elimination(Matrix* A, Vector* b);
 Vector* gauss_jordan(Matrix* A, Vector* b);
 Vector* lu_decomposition(Matrix* A, Vector* b);
 Vector* gauss_seidel(Matrix* A, Vector* b, double tolerance, int max_iter);
+Vector* jacobi_iteration(Matrix* A, Vector* b, double tolerance, int max_iter);
+Matrix* matrix_inversion(Matrix* A);
+
+// Matrix Property Diagnostics & Residual (Evaluated in C)
+void matrix_diagnostics(Matrix* A);
+void print_solution_and_residual(Matrix* A, Vector* b, Vector* x);
 
 #endif
